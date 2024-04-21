@@ -97,16 +97,24 @@ end_date = st.date_input('End Date')
 # Convert start and end dates to SQL-compatible format
 start_date_sql = start_date.strftime('%Y-%m-%d')
 end_date_sql = end_date.strftime('%Y-%m-%d')
-
-# Call the function to fetch data for the selected date range
+# Fetch data for the selected date range without filtering by subcategory
 data = fetch_data_for_date_range(start_date_sql, end_date_sql, db_config_cilantro)
 
-# Create sales mix from the fetched data
+# Convert the fetched data to DataFrame
+sales_data_df = pd.DataFrame(data, columns=['cilantro_id', 'vendor_name', 'item_details', 'main_subcategory_name', 'payment_type', 'status', 'item_total_amount', 'username', 'phone', 'email', 'estimated_datetime', 'confirm_datetime', 'prepared_datetime', 'picked_datetime', 'promocode'])
+
+# Multi-select for subcategory selection
+s_selection = st.multiselect("Select subcategories", sales_data_df['main_subcategory_name'].unique())
+# Filter the DataFrame based on selected subcategories
+if s_selection:
+    sales_data_df = sales_data_df[sales_data_df['main_subcategory_name'].isin(s_selection)]
+
+# Create sales mix from the filtered data
 sales_mix = {}
 
-for row in data:
-    item_details = row[2]  # Assuming item details is in the third column
-    subcategory_name = row[3]  # Assuming subcategory name is in the fourth column
+for index, row in sales_data_df.iterrows():
+    item_details = row['item_details']
+    subcategory_name = row['main_subcategory_name']
     if item_details is not None:
         items = item_details.split(',')
         for item in items:
@@ -115,16 +123,11 @@ for row in data:
             quantity = int(quantity.strip())
 
             if name not in sales_mix:
-                sales_mix[name] = {"Quantity": 0, "Subcategory": subcategory_name}  # Add subcategory to sales mix entry
+                sales_mix[name] = {"Quantity": 0, "Subcategory": subcategory_name}
             sales_mix[name]["Quantity"] += quantity
 
 # Convert sales mix to DataFrame for display
 sales_mix_df = pd.DataFrame(sales_mix.values(), index=sales_mix.keys())
-
-st.set_option('deprecation.showPyplotGlobalUse', False)
-
-
-
 
 # Display bar chart for items
 st.subheader("Bar Chart for Item Sales")
